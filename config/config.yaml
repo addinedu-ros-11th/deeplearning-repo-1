@@ -1,0 +1,119 @@
+# Smart Cart System Configuration
+
+# Server Configuration
+server:
+  tcp:
+    host: "0.0.0.0"
+    port: 5000
+  udp:
+    host: "0.0.0.0"
+    port: 5001
+
+# Database Configuration
+database:
+  host: "your-rds-endpoint.region.rds.amazonaws.com"
+  port: 3306
+  user: "admin"
+  password: "your-password"
+  database: "smart_cart_db"
+
+# Camera Configuration
+camera:
+  product_recognition:
+    device_id: 0  # 1번 노트북 내장 카메라
+    resolution:
+      width: 1280
+      height: 720
+    fps: 30
+  
+  obstacle_recognition:
+    device_id: 0  # 2번 노트북 내장 카메라
+    resolution:
+      width: 1280
+      height: 720
+    fps: 30
+
+# YOLO Model Configuration
+yolo:
+  product:
+    # 방식 1 (권장): 통합 모델 - 모든 상품을 하나의 모델에서 학습
+    unified_model: "models/product_yolo/products_all.pt"
+    use_unified: true  # true: 통합 모델 사용, false: 카테고리별 모델 사용
+    
+    # 방식 2: 카테고리별 모델 - 각 카테고리마다 별도 학습 (느림)
+    icecream_model: "models/product_yolo/icecream.pt"
+    snack_model: "models/product_yolo/snack.pt"
+    ramen_model: "models/product_yolo/ramen.pt"
+    
+    confidence_threshold: 0.6
+    
+    # 클래스 매핑 (통합 모델 사용 시)
+    class_to_category:
+      0: "icecream"  # 바닐라 아이스크림
+      1: "icecream"  # 초코 아이스크림
+      2: "icecream"  # 딸기 아이스크림
+      3: "snack"     # 포테토칩
+      4: "snack"     # 새우깡
+      5: "snack"     # 초코파이
+      6: "ramen"     # 신라면
+      7: "ramen"     # 진라면
+      8: "ramen"     # 안성탕면
+  
+  obstacle:
+    person_model: "models/obstacle_yolo/person.pt"
+    cart_model: "models/obstacle_yolo/cart.pt"
+    confidence_threshold: 0.7
+
+# Product Information
+products:
+  icecream:
+    - name: "바닐라 아이스크림"
+      price: 2000
+      image: "images/products/vanilla_icecream.jpg"
+    - name: "초코 아이스크림"
+      price: 2500
+      image: "images/products/choco_icecream.jpg"
+    - name: "딸기 아이스크림"
+      price: 2500
+      image: "images/products/strawberry_icecream.jpg"
+  
+  snack:
+    - name: "포테토칩"
+      price: 1500
+      image: "images/products/potato_chip.jpg"
+    - name: "새우깡"
+      price: 1000
+      image: "images/products/saewookang.jpg"
+    - name: "초코파이"
+      price: 1200
+      image: "images/products/chocopie.jpg"
+  
+  ramen:
+    - name: "신라면"
+      price: 1000
+      image: "images/products/shin_ramen.jpg"
+    - name: "진라면"
+      price: 900
+      image: "images/products/jin_ramen.jpg"
+    - name: "안성탕면"
+      price: 800
+      image: "images/products/ansung_ramen.jpg"
+
+# Quality Inspection Configuration
+quality:
+  damage_threshold: 0.3  # 파손 판정 임계값
+  check_interval: 2.0  # 품질 검사 주기 (초)
+
+# Obstacle Detection Configuration
+obstacle:
+  warning_distance: 1.5  # 경고 거리 (미터)
+  critical_distance: 0.5  # 위험 거리 (미터)
+  collision_time_threshold: 2.0  # 충돌 예상 시간 (초)
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  log_file: "smart_cart.log"
+  max_size: 10485760  # 10MB
+  backup_count: 5

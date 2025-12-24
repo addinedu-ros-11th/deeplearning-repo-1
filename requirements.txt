@@ -1,0 +1,22 @@
+# Deep Learning & Computer Vision
+ultralytics>=8.0.0
+opencv-python>=4.8.0
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# Database
+pymysql>=1.1.0
+sqlalchemy>=2.0.0
+
+# GUI
+PyQt6>=6.4.0
+pyqtgraph>=0.13.0
+
+# Network
+asyncio>=3.4.3
+
+# Utilities
+pyyaml>=6.0
+python-dotenv>=1.0.0
