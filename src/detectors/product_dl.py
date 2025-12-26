@@ -9,18 +9,23 @@ class ProductRecognizer:
         """
         프레임 내의 상품을 인식하여 DB 조회를 위한 ID 반환
         """
+
         results = self.model.predict(frame, conf=self.threshold, verbose=False)
-        
-        if len(results) > 0 and len(results[0].boxes) > 0:
-            # 가장 신뢰도가 높은 첫 번째 객체 선택
-            top_box = results[0].boxes[0]
-            product_id = int(top_box.cls[0])
-            confidence = float(top_box.conf[0])
-            
-            return {
-                "product_id": product_id,
-                "confidence": confidence,
-                "status": "detected"
-            }
-        
-        return {"status": "none"}
+
+        if not results:
+            return {"status": "none"}
+
+        boxes = results[0].boxes
+        if boxes is None or len(boxes) == 0:
+            return {"status": "none"}
+
+        # 가장 신뢰도가 높은 첫 번째 객체 선택
+        top_box = boxes[0]
+        product_id = int(top_box.cls[0])
+        confidence = float(top_box.conf[0])
+
+        return {
+            "product_id": product_id,
+            "confidence": confidence,
+            "status": "detected"
+        }
