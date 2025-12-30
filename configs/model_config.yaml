@@ -1,7 +1,7 @@
 # AI 모델 관련 설정
 obstacle_detector:
-  weights: "models/obstacle_detector/dummy.pt"
-  confidence: 0.5
+  weights: "yolo11n-pose.pt"
+  confidence: 0.35
   iou_threshold: 0.45
   danger_threshold_low: 0.3
   danger_threshold_high: 0.7
