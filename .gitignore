@@ -208,3 +208,42 @@ __marimo__/
 
 # data
 /data/
+# Project-specific
+# Log files
+test_*.log
+logs_*.txt
+*.log
+
+# Temporary test files
+/test/simple_ui_test.py
+/test/test_local_simple.py
+/test/hybrid_camera_app.py
+/test/test_webcam.py
+
+# Model files (too large)
+/models/*.pt
+/models/*.pth
+!/models/dummy.pt
+
+# Video files
+*.mp4
+*.avi
+*.mov
+
+test/yw1/data/*
+test/yw1/dataset/*
+
+# 1. runs 폴더 안의 모든 항목을 기본적으로 제외
+test/yw1/runs/*
+# 2. train 폴더를 탐색할 수 있도록 제외 해제
+!test/yw1/runs/train/
+!test/yw1/runs/train/*/
+test/yw1/runs/train/*/*
+# 3. train 안의 각 실험 폴더(exp1 등) 내 weights 폴더까지 탐색 허용
+!test/yw1/runs/train/*/weights/
+# 4. weights 폴더 안의 모든 파일은 다시 제외 (불필요한 체크포인트 방지)
+test/yw1/runs/train/*/weights/*
+# 5. 그중에서 best.pt 파일만 최종적으로 포함
+!test/yw1/runs/train/*/weights/best.pt
+
+!test/yw1/data/inference/input/.gitkeep

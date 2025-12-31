@@ -1,0 +1,27 @@
+# YOLOv8 Dataset Configuration File
+# ------------------------------------
+# Usage:
+#   from ultralytics import YOLO
+#   model = YOLO('yolov8n-obb.pt')
+#   results = model.train(data='D:/yongwoo/Software_project/projects/deeplearning-repo-1/test/yw1/config/dataset.yaml', epochs=100)
+#
+# Notes:
+# - Paths must be absolute or relative to the 'ultralytics' installation directory.
+# - It's recommended to use absolute paths to avoid ambiguity.
+
+# Path to the root directory of the dataset
+path: D:/yongwoo/Software_project/projects/deeplearning-repo-1/test/yw1/data/processed
+
+# Train, validation, and test set directories (relative to 'path')
+train: images/train
+val: images/val
+test: images/test
+
+# Class names (map class indices to names)
+# IMPORTANT: The order must match the class indices used in the label files.
+names:
+  0: person
+  1: shopping_cart
+  # Add more class names as needed
+  # 2: product_a
+  # 3: product_b

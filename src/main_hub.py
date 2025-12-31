@@ -10,13 +10,7 @@ from database.product_dao import ProductDAO
 from database.transaction_dao import TransactionDAO
 from database.obstacle_log_dao import ObstacleLogDAO
 from common.config import config
-from common.protocols import (
-    Protocol,
-    MessageType,
-    AIEvent,
-    UICommand,
-    UIRequest
-)
+from common.protocols import Protocol, MessageType, AIEvent, UICommand, UIRequest
 from utils.logger import SystemLogger
 
 
@@ -39,10 +33,11 @@ class MainPC2Hub:
         # Database
         # -------------------------
         self.db_handler = DBHandler(config.db.aws_rds)
+        
         self.product_dao = ProductDAO(self.db_handler)
         self.tx_dao = TransactionDAO(self.db_handler)
         self.obstacle_dao = ObstacleLogDAO(self.db_handler)
-        
+
         # -------------------------
         # UI Client (for sending commands to UI)
         # -------------------------
@@ -62,16 +57,10 @@ class MainPC2Hub:
         )
 
         # -------------------------
-        # Session
+        # Session (will be started by UI request)
         # -------------------------
-        cart_code = config.network.pc2_main.cart_code
-        try:
-            self.session_id = self.tx_dao.start_session(cart_code)
-            self.logger.log_event("SESSION", f"Session started with cart_code {cart_code}: session_id={self.session_id}")
-        except Exception as e:
-            self.logger.log_event("ERROR", f"Failed to start initial session for cart {cart_code}: {e}")
-            raise RuntimeError(f"MainPC2Hub cannot start without a valid session.") from e
-
+        self.session_id = None
+        self.logger.log_event("SESSION", "No active session. Waiting for UI to start.")
 
         # -------------------------
         # UDP Forwarders (PC2 → AI)
@@ -79,11 +68,11 @@ class MainPC2Hub:
         ai_ip = config.network.pc1_ai.ip
         self.front_forwarder = UDPFrameSender(
             host=ai_ip,
-            port=config.network.pc1_ai.udp_front_port,
+            port=config.network.pc1_ai.udp_port_front,
         )
         self.cart_forwarder = UDPFrameSender(
             host=ai_ip,
-            port=config.network.pc1_ai.udp_cart_port,
+            port=config.network.pc1_ai.udp_port_cart,
         )
 
         # -------------------------
@@ -101,7 +90,6 @@ class MainPC2Hub:
             config.network.pc2_main.udp_cart_cam_port,
         )
         # self.logger.log_event("WARN", "Using placeholder UDP receiver ports (9000, 9001)")
-
 
         # -------------------------
         # UI Request Server (TCP PULL from UI)
@@ -121,7 +109,10 @@ class MainPC2Hub:
             handler=self.handle_ai_event,
         )
 
-        self.logger.log_event("SYSTEM", f"Main PC2 Hub initialized, listening for AI events on port {config.network.pc2_main.event_port}")
+        self.logger.log_event(
+            "SYSTEM",
+            f"Main PC2 Hub initialized, listening for AI events on port {config.network.pc2_main.event_port}",
+        )
 
     # =========================
     # UDP Forwarding Loops
@@ -129,12 +120,12 @@ class MainPC2Hub:
     def forward_front_cam(self):
         self.logger.log_event("NET", "Front cam forwarding started")
         for jpeg_bytes in self.front_receiver.receive_packets():
-            self.front_forwarder.send_frame(jpeg_bytes)
+            self.front_forwarder.send_frame_raw(jpeg_bytes)
 
     def forward_cart_cam(self):
         self.logger.log_event("NET", "Cart cam forwarding started")
         for jpeg_bytes in self.cart_receiver.receive_packets():
-            self.cart_forwarder.send_frame(jpeg_bytes)
+            self.cart_forwarder.send_frame_raw(jpeg_bytes)
 
     # =========================
     # UI Request Handler
@@ -154,71 +145,146 @@ class MainPC2Hub:
         if cmd == UIRequest.CHECKOUT:
             return self._handle_ui_checkout()
 
+        if cmd == UIRequest.UPDATE_QUANTITY:
+            return self._handle_ui_update_quantity(message["payload"]["data"])
+
+        if cmd == UIRequest.REMOVE_ITEM:
+            return self._handle_ui_remove_item(message["payload"]["data"])
+
         return {"status": "UNKNOWN_CMD"}
-    
+
     def _handle_ui_start(self) -> dict:
-        # 이미 세션이 있으면 무시
+        # If there's an existing session, end it first
         if self.session_id:
-            return {"status": "ALREADY_STARTED"}
+            self.logger.log_event(
+                "SESSION",
+                f"Ending previous session {self.session_id} before starting new one",
+            )
+            self.tx_dao.end_session(self.session_id)
+            self.engine.reset()
 
         cart_code = config.network.pc2_main.cart_code
         try:
-            self.session_id = self.tx_dao.start_session(cart_code)
+            # Get cart_id from cart_code
+            cart_id = self.tx_dao.get_cart_id_by_code(cart_code)
+            if not cart_id:
+                raise ValueError(f"Cart not found for code: {cart_code}")
+
+            self.session_id = self.tx_dao.start_session(cart_id)
             self.logger.log_event(
                 "SESSION",
-                f"Session started by UI: {self.session_id}",
+                f"✅ Session started by UI: session_id={self.session_id}, cart_id={cart_id}",
             )
+            print(f"[Main Hub] ✅ NEW SESSION: {self.session_id}")
             return {"status": "OK", "session_id": self.session_id}
         except Exception as e:
-            self.logger.log_event("ERROR", f"UI-initiated session failed for cart {cart_code}: {e}")
+            self.logger.log_event(
+                "ERROR", f"UI-initiated session failed for cart {cart_code}: {e}"
+            )
+            print(f"[Main Hub] ❌ SESSION START FAILED: {e}")
             return {"status": "ERROR", "reason": "Failed to start session"}
-    
+
     def _handle_ui_checkout(self) -> dict:
+        print(f"[Main Hub] 🛒 CHECKOUT REQUEST RECEIVED")
+        print(f"[Main Hub]   Current session_id: {self.session_id}")
+
         if not self.session_id:
+            print(f"[Main Hub] ❌ NO ACTIVE SESSION")
             return {"status": "NO_ACTIVE_SESSION"}
 
         # 1. Get all cart items from the database for the current session
         cart_items = self.tx_dao.list_cart_items(self.session_id)
+        print(f"[Main Hub]   Found {len(cart_items)} cart items")
+
         if not cart_items:
             # Handle empty cart checkout? For now, we proceed.
             self.logger.log_event("SESSION", "Checkout initiated for an empty cart.")
             total_amount = 0
             total_items = 0
+            print(f"[Main Hub] ⚠️  Empty cart checkout")
         else:
             # 2. Calculate total amount and item count
-            total_amount = sum(item['total_price'] for item in cart_items)
-            total_items = sum(item['quantity'] for item in cart_items)
+            total_amount = sum(
+                item.get("subtotal", item.get("total_price", 0)) for item in cart_items
+            )
+            total_items = sum(item["quantity"] for item in cart_items)
+            print(f"[Main Hub]   Calculated: {total_items} items, ₩{total_amount}")
 
         # 3. Create the order with the calculated totals
         order_id = self.tx_dao.create_order(
             session_id=self.session_id,
             total_amount=total_amount,
-            total_items=total_items
+            total_items=total_items,
         )
+        print(f"[Main Hub] ✅ Order created: order_id={order_id}")
 
-        # 4. End the session
+        # 4. Add order details (snapshot of each product at purchase time)
+        for item in cart_items:
+            self.tx_dao.add_order_detail(
+                order_id=order_id,
+                product_id=item["product_id"],
+                snap_price=item["price"],
+            )
+        print(f"[Main Hub] ✅ Order details saved: {len(cart_items)} items")
+
+        # 5. End the session
         self.tx_dao.end_session(self.session_id)
+        print(f"[Main Hub] ✅ Session {self.session_id} ended")
 
         self.logger.log_event(
             "SESSION",
             f"Checkout completed: order_id={order_id}, total_amount={total_amount}, total_items={total_items}",
         )
 
-        # 5. Notify the UI
+        # 6. Notify the UI
         msg = Protocol.ui_command(
             UICommand.CHECKOUT_DONE,
             {"order_id": order_id, "total_amount": total_amount},
         )
         self.ui_client.send_request(msg)
 
-        # 6. Reset session state
+        # 7. Reset session state
         self.session_id = None
         self.engine.reset()
 
         return {"status": "OK", "order_id": order_id}
 
+    def _handle_ui_update_quantity(self, data: dict) -> dict:
+        """Handle quantity update request from UI"""
+        session_id = data.get("session_id")
+        product_id = data.get("product_id")
+        quantity = data.get("quantity")
 
+        print(
+            f"[Main Hub] UPDATE_QUANTITY: session={session_id}, product={product_id}, qty={quantity}"
+        )
 
+        if not session_id or product_id is None or quantity is None:
+            return {"status": "ERROR", "reason": "Missing parameters"}
+
+        try:
+            self.engine.update_item_quantity(session_id, product_id, quantity)
+            return {"status": "OK"}
+        except Exception as e:
+            self.logger.log_event("ERROR", f"Failed to update quantity: {e}")
+            return {"status": "ERROR", "reason": str(e)}
+
+    def _handle_ui_remove_item(self, data: dict) -> dict:
+        """Handle item removal request from UI"""
+        session_id = data.get("session_id")
+        product_id = data.get("product_id")
+
+        print(f"[Main Hub] REMOVE_ITEM: session={session_id}, product={product_id}")
+
+        if not session_id or product_id is None:
+            return {"status": "ERROR", "reason": "Missing parameters"}
+
+        try:
+            self.engine.remove_cart_item(session_id, product_id)
+            return {"status": "OK"}
+        except Exception as e:
+            self.logger.log_event("ERROR", f"Failed to remove item: {e}")
+            return {"status": "ERROR", "reason": str(e)}
 
     # =========================
     # AI Event Handler
@@ -242,13 +308,21 @@ class MainPC2Hub:
 
     def _handle_obstacle(self, data: dict):
         if self.session_id is None:
+            self.logger.log_event(
+                "WARN", "Obstacle event received but no active session"
+            )
             return
         self.engine.process_obstacle_event(data, self.session_id)
 
-
     def _handle_product(self, data: dict):
         if self.session_id is None:
+            self.logger.log_event(
+                "WARN", f"Product event received but no active session: {data}"
+            )
             return
+        self.logger.log_event(
+            "DEBUG", f"Processing product event for session {self.session_id}: {data}"
+        )
         self.engine.process_product_event(data, self.session_id)
 
     # =========================
@@ -266,8 +340,8 @@ class MainPC2Hub:
         ).start()
 
         threading.Thread(
-        target=self.ui_request_server.start,
-        daemon=True,
+            target=self.ui_request_server.start,
+            daemon=True,
         ).start()
 
         self.ai_event_server.start()

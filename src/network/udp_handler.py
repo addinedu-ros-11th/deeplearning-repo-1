@@ -34,6 +34,14 @@ class UDPFrameSender:
 
     def send_frame(self, frame) -> None:
         encoded = self._encode_frame(frame)
+        self._send_encoded(encoded)
+
+    def send_frame_raw(self, jpeg_bytes: bytes) -> None:
+        """Send already-encoded JPEG bytes directly"""
+        self._send_encoded(jpeg_bytes)
+
+    def _send_encoded(self, encoded: bytes) -> None:
+        """Internal method to send encoded bytes"""
         chunks = self._split_chunks(encoded)
 
         total_chunks = len(chunks)
@@ -60,7 +68,7 @@ class UDPFrameSender:
 
     def _split_chunks(self, data: bytes):
         return [
-            data[i:i + MAX_PAYLOAD_SIZE]
+            data[i : i + MAX_PAYLOAD_SIZE]
             for i in range(0, len(data), MAX_PAYLOAD_SIZE)
         ]
 
@@ -87,7 +95,6 @@ class UDPFrameReceiver:
 
         self._frames: Dict[int, Dict] = {}
 
-
     def receive_packets(self) -> Generator[bytes, None, None]:
         """
         Yield reassembled JPEG bytes (NOT decoded frame)
@@ -98,7 +105,6 @@ class UDPFrameReceiver:
             if data is not None:
                 yield data
 
-
     def _handle_packet(self, packet: bytes):
         if len(packet) < HEADER_SIZE:
             return None
@@ -106,9 +112,7 @@ class UDPFrameReceiver:
         header = packet[:HEADER_SIZE]
         payload = packet[HEADER_SIZE:]
 
-        frame_id, chunk_id, total_chunks = struct.unpack(
-            HEADER_FORMAT, header
-        )
+        frame_id, chunk_id, total_chunks = struct.unpack(HEADER_FORMAT, header)
 
         frame_entry = self._frames.setdefault(
             frame_id,
@@ -119,8 +123,7 @@ class UDPFrameReceiver:
 
         if len(frame_entry["chunks"]) == frame_entry["total"]:
             data = b"".join(
-                frame_entry["chunks"][i]
-                for i in range(frame_entry["total"])
+                frame_entry["chunks"][i] for i in range(frame_entry["total"])
             )
             del self._frames[frame_id]
             return data

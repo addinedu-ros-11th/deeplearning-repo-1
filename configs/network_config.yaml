@@ -14,7 +14,7 @@ pc1_ai:
 # PC2: Main Hub Server
 pc2_main:
   ip: "127.0.0.1"
-  cart_code: 1
+  cart_code: "CART-001"
   # PC2 listens on this TCP port for events from the AI Server
   event_port: 6002
   # PC2 listens on this TCP port for requests from the UI
@@ -26,7 +26,5 @@ pc2_main:
 # PC3: UI Dashboard
 pc3_ui:
   ip: "127.0.0.1"
-  # PC3 listens on this TCP port for commands from the Main Hub.
-  # NOTE: This is the same port PC2 uses to listen for UI requests.
-  # This configuration assumes PC2 and PC3 are on different machines.
-  ui_port: 7000
+  # PC3 listens on this TCP port for commands from the Main Hub
+  ui_port: 7001

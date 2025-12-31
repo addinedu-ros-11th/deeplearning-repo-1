@@ -79,17 +79,35 @@ smart-shopping-cart/
 
 ### 1. 환경 설정
 
+#### 필수 라이브러리 설치
 모든 PC에서 필요한 라이브러리를 설치합니다.
 
 ```bash
 pip install -r requirements.txt
 ```
 
+#### 환경변수 설정
+프로젝트 루트에 `.env` 파일을 생성하고 데이터베이스 정보를 설정합니다.
+
+```bash
+# .env.example을 복사하여 .env 파일 생성
+cp .env.example .env
+
+# .env 파일 편집 (실제 DB 정보 입력)
+# DB_HOST=your-rds-endpoint.ap-northeast-2.rds.amazonaws.com
+# DB_PORT=3306
+# DB_USER=root
+# DB_PASSWORD=your-secure-password
+# DB_NAME=smart_cart_db
+```
+
+⚠️ **중요:** `.env` 파일은 민감한 정보를 포함하므로 Git에 커밋하지 마세요. (`.gitignore`에 이미 추가되어 있음)
+
 ### 2. 인프라 준비
 
 -   **데이터베이스:** `scripts/init_db.sql` 스크립트를 사용하여 DB 테이블을 생성합니다.
 -   **초기 데이터:** `scripts/seed_data.py`를 실행하여 상품 마스터 데이터를 DB에 입력합니다.
--   **환경 설정:** `configs/` 디렉토리의 `.yaml` 파일들을 실제 운영 환경(DB 접속 정보, 각 PC의 IP 주소 등)에 맞게 수정합니다. (로컬 테스트 시에는 모든 IP를 `127.0.0.1`로 설정)
+-   **네트워크 설정:** `configs/network_config.yaml` 파일에서 각 PC의 IP 주소를 설정합니다. (로컬 테스트 시에는 모든 IP를 `127.0.0.1`로 설정)
 
 ### 3. 시스템 가동 (권장 순서)
 

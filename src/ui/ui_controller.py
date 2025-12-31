@@ -20,10 +20,12 @@ class UIEventSignals(QObject):
     """
     Qt Signals to safely update UI from background threads
     """
+
     product_added = pyqtSignal(dict)
     danger_updated = pyqtSignal(int)
     status_changed = pyqtSignal(str)
     reset_cart = pyqtSignal()
+    cart_updated = pyqtSignal(list, float)  # items, total
 
 
 class UIController:
@@ -55,31 +57,20 @@ class UIController:
     # Signal bindings
     # =========================
     def _bind_signals(self):
-        self.signals.product_added.connect(
-            self.dashboard.add_product
-        )
+        self.signals.product_added.connect(self.dashboard.add_product)
         self.signals.danger_updated.connect(
-            lambda lvl: self.dashboard.set_danger_level(
-                DangerLevel(lvl)
-            )
+            lambda lvl: self.dashboard.set_danger_level(DangerLevel(lvl))
         )
-        self.signals.status_changed.connect(
-            self.dashboard.set_status
-        )
-        self.signals.reset_cart.connect(
-            self.dashboard.reset_cart
-        )
+        self.signals.status_changed.connect(self.dashboard.set_status)
+        self.signals.reset_cart.connect(self.dashboard.reset_cart)
+        self.signals.cart_updated.connect(self.dashboard.update_cart_display)
 
     # =========================
     # Button → MainPC2
     # =========================
     def _bind_buttons(self):
-        self.dashboard.start_btn.clicked.connect(
-            self._send_start
-        )
-        self.dashboard.end_btn.clicked.connect(
-            self._send_checkout
-        )
+        self.dashboard.start_btn.clicked.connect(self._send_start)
+        self.dashboard.end_btn.clicked.connect(self._send_checkout)
 
     def _send_start(self):
         msg = Protocol.ui_request(UIRequest.START_SESSION, {})
@@ -99,7 +90,7 @@ class UIController:
                 s.connect((self.main_pc2_ip, port))
                 s.sendall(json.dumps(message).encode())
         except Exception as e:
-            print(f"[UI] Send error to {self.main_pc2_ip}:{port}: {e}")
+            print(f"[UI] Send error to {self.main_pc2_ip}:{port}: {e}", flush=True)
 
     # =========================
     # TCP Server (MainPC2 → UI)
@@ -111,24 +102,42 @@ class UIController:
         sock.bind(("0.0.0.0", port))
         sock.listen(5)
 
-        print(f"[UI] TCP server listening for commands on port {port}")
+        print(f"[UI] TCP server listening for commands on port {port}", flush=True)
 
         while True:
             conn, _ = sock.accept()
             with conn:
-                data = conn.recv(8192)
-                if not data:
+                # Read 4-byte header (length prefix)
+                header = conn.recv(4)
+                if not header or len(header) != 4:
                     continue
-                self._handle_message(data)
+
+                import struct
+
+                payload_length = struct.unpack(">I", header)[0]
+
+                # Read the full payload
+                data = bytearray()
+                while len(data) < payload_length:
+                    chunk = conn.recv(min(8192, payload_length - len(data)))
+                    if not chunk:
+                        break
+                    data.extend(chunk)
+
+                if len(data) < payload_length:
+                    print(f"[UI] Incomplete message received", flush=True)
+                    continue
+
+                self._handle_message(bytes(data))
 
     def _handle_message(self, raw: bytes):
         try:
             message = Protocol.parse(raw.decode())
         except ValueError as e:
-            print(f"[UI] Error parsing message: {e}")
+            print(f"[UI] Error parsing message: {e}", flush=True)
             return
         except Exception as e:
-            print(f"[UI] An unexpected error occurred: {e}")
+            print(f"[UI] An unexpected error occurred: {e}", flush=True)
             return
 
         if MessageType(message["header"]["type"]) != MessageType.UI_CMD:
@@ -137,13 +146,22 @@ class UIController:
         payload = message["payload"]
         cmd = UICommand(payload["command"])
 
+        print(f"[UI] Received command: {cmd}", flush=True)
+
         if cmd == UICommand.ADD_TO_CART:
+            print(f"[UI] ADD_TO_CART: {payload['content']}", flush=True)
             self.signals.product_added.emit(payload["content"])
 
+        elif cmd == UICommand.UPDATE_CART:
+            # New handler for UPDATE_CART command
+            items = payload["content"]["items"]
+            total = payload["content"]["total"]
+            print(f"[UI] UPDATE_CART: {len(items)} items, total={total}", flush=True)
+            print(f"[UI] Items: {items}", flush=True)
+            self.signals.cart_updated.emit(items, total)
+
         elif cmd == UICommand.SHOW_ALARM:
-            self.signals.danger_updated.emit(
-                payload["content"]["level"]
-            )
+            self.signals.danger_updated.emit(payload["content"]["level"])
 
         elif cmd == UICommand.CHECKOUT_DONE:
             self.signals.reset_cart.emit()

@@ -14,18 +14,16 @@ class ProductDAO:
     # Product Queries
     # =========================
     def get_product_by_id(self, product_id: int) -> Optional[Dict]:
+        """Get product by product ID"""
         sql = """
         SELECT
-            p.product_id,
-            p.name,
-            p.price,
-            p.stock_quantity,
-            p.image_url,
-            c.category_id,
-            c.name AS category_name
-        FROM products p
-        JOIN categories c ON p.category_id = c.category_id
-        WHERE p.product_id = %s
+            product_id,
+            name,
+            price,
+            stock_quantity,
+            category_id
+        FROM products
+        WHERE product_id = %s
         """
         return self.db.fetch_one(sql, (product_id,))
 

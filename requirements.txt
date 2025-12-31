@@ -9,6 +9,7 @@ PyQt6
 # Database & Config
 mysql-connector-python
 pyyaml
+python-dotenv
 
 # System
 requests

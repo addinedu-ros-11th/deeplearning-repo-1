@@ -1,11 +1,11 @@
 # AI 모델 관련 설정
 obstacle_detector:
-  weights: "models/obstacle_detector/best.pt"
+  weights: "models/obstacle_detector/dummy.pt"
   confidence: 0.5
   iou_threshold: 0.45
   danger_threshold_low: 0.3
   danger_threshold_high: 0.7
 
 product_recognizer:
-  weights: "models/product_recognizer/best.pt"
-  confidence: 0.7
+  weights: "models/product_recognizer/product_yolov8s.pt"
+  confidence: 0.6
