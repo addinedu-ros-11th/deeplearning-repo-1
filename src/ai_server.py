@@ -13,7 +13,7 @@ from common.protocols import (
     AIEvent,
     DangerLevel,
 )
-from detectors.obstacle_dl import ObstacleDetector
+from detectors.obstacle_dl_v2 import ObstacleDetectorV2  # Use V2
 from detectors.product_dl import ProductRecognizer
 
 
@@ -34,7 +34,7 @@ class AIServer:
         # -------------------------
         # Models
         # -------------------------
-        self.obstacle_model = ObstacleDetector()
+        self.obstacle_model = ObstacleDetectorV2() # Use ObstacleDetectorV2
         self.product_model = ProductRecognizer()
 
         # -------------------------
@@ -93,26 +93,43 @@ class AIServer:
     # =========================
     def _obstacle_inference_loop(self):
         print("Obstacle inference loop started.")
+        frame_index = 0
+        last_inference_time = time.time()
         while True:
             with self._obstacle_lock:
                 jpeg = self._latest_obstacle_bytes
+                self._latest_obstacle_bytes = None # Consume the latest frame
 
             if jpeg is None:
-                time.sleep(0.1)
+                time.sleep(0.01) # Shorter sleep to react faster if frames are frequent
                 continue
 
             frame = self._decode(jpeg)
             if frame is None:
                 continue
+            
+            # Calculate FPS
+            current_time = time.time()
+            fps = 1.0 / (current_time - last_inference_time) if (current_time - last_inference_time) > 0 else 30.0
+            last_inference_time = current_time
 
-            result = self.obstacle_model.detect(frame)
-            level = DangerLevel(result.get("level", 0))
+            # Use the new ObstacleDetectorV2
+            detection_results = self.obstacle_model.detect_and_assess(frame, frame_index=frame_index, fps=fps)
+            
+            # The entire detection_results (including danger_level, objects, annotated_frame)
+            # is now passed as the data payload.
+            # The SmartCartEngine will then parse this detailed data.
+            # We don't filter by DangerLevel here, let the engine decide when to log/alarm
+            self._push_event(AIEvent.OBSTACLE_DANGER, {
+                "detection_results": detection_results, 
+                "frame_index": frame_index, 
+                "fps": fps
+            })
 
-            # Push event if danger is detected. Debouncing is handled by the main hub's engine.
-            if level >= DangerLevel.CAUTION:
-                self._push_event(AIEvent.OBSTACLE_DANGER, result)
-
-            time.sleep(0.05)  # Control inference frequency
+            frame_index += 1
+            # Do not sleep here, as processing time might vary and we want to process frames as fast as possible
+            # The UDP receiver loop will naturally provide frames at its rate.
+            # time.sleep(0.01) # Removed explicit sleep, rely on frame processing time
 
     def _product_inference_loop(self):
         print("Product inference loop started.")

@@ -52,9 +52,10 @@ class AIEvent(IntEnum):
 
 
 class DangerLevel(IntEnum):
-    NORMAL = 0
-    CAUTION = 1
-    CRITICAL = 2
+    NORMAL = 0  # SAFE
+    CAUTION = 1 # CAUTION
+    CRITICAL = 2 # WARN
+
 
 
 # =========================
