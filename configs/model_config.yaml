@@ -1,48 +1,38 @@
-# AI 모델 관련 설정
-obstacle_detector:
-  weights: "models/obstacle_detector/cart_person_integrated.pt"
-  confidence: 0.35
-  iou_threshold: 0.5
-  danger_threshold_low: 0.3
-  danger_threshold_high: 0.7
-  
-  # Risk Engine 설정 (고급 장애물 위험도 평가)
-  risk:
-    # 중앙 영역 판정 (화면 중앙 45% 영역)
-    center_band_ratio: 0.45
-    near_center_band_ratio: 0.65
-    
-    # EMA (Exponential Moving Average) 평활화 계수
-    ema_alpha: 0.35
-    
-    # 접근 판정 최소 속도
-    closing_rate_min: 0.02
-    
-    # 연속 프레임 임계값
-    streak_warn: 12       # WARN 판정까지 필요한 연속 프레임 (증가)
-    streak_caution: 6     # CAUTION 판정까지 필요한 연속 프레임 (증가)
-    
-    # pTTC (Predicted Time To Collision) 임계값 (초)
-    pttc_warn_s: 1.5      # WARN 판정 임계값 (더 가까워야 WARN)
-    pttc_caution_s: 3.5   # CAUTION 판정 임계값
-    
-    # 초근접 감지 임계값
-    mega_close_boxh_ratio: 0.60   # 박스 높이가 화면 60% 이상 (더 가까워야)
-    mega_close_area_ratio: 0.40   # 박스 면적이 화면 40% 이상 (더 가까워야)
-    
-    # Hysteresis (깜빡임 방지)
-    hysteresis_frames: 25  # 위험도 하강 시 유지 프레임 (2.5배 증가 → 약 1.25초)
-    stale_frames: 40       # 객체 사라진 후 상태 유지 프레임 (증가)
-    
-    # 클래스별 가중치
-    class_weights:
-      Person: 1.0
-      Cart: 0.8
-    
-    # 추가 보너스 점수
-    center_bonus: 0.2      # 중앙 위치 보너스
-    approach_bonus: 0.2    # 접근 중 보너스
+models:
+  # dev 환경에 맞는 모델 경로 (필요시 수정)
+  weights: "test/changhee/cart_person_integrated.pt"
 
-product_recognizer:
-  weights: "models/product_recognizer/product_yolov8s.pt"
-  confidence: 0.6
+inference:
+  conf: 0.35
+  iou: 0.5
+  imgsz: 640
+  device: "0"
+  verbose: false
+
+tracking:
+  tracker: "bytetrack.yaml"
+  persist: true
+
+risk:
+  center_band_ratio: 0.45
+  near_center_band_ratio: 0.65
+  ema_alpha: 0.35
+  closing_rate_min: 0.02
+  streak_warn: 8
+  streak_caution: 4
+  pttc_warn_s: 2.0
+  pttc_caution_s: 4.0
+  mega_close_boxh_ratio: 0.55
+  mega_close_area_ratio: 0.35
+  hysteresis_frames: 10
+  stale_frames: 30
+  class_weights:
+    Person: 1.0
+    Cart: 0.8
+  center_bonus: 0.2
+  approach_bonus: 0.2
+
+output:
+  base_dir: "runs_obstacle"
+  csv_name: "events.csv"
+  save_snapshots: true
