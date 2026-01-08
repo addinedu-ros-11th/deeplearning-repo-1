@@ -24,11 +24,10 @@ from PyQt6.QtWidgets import (
     QFrame,
     QStackedWidget,
     QDialog,
-    QMessageBox,
     QGraphicsOpacityEffect,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtGui import QFont
 
 
 class DangerLevel(Enum):
@@ -137,7 +136,7 @@ class ToastNotification(QWidget):
     def _show_next(self):
         """Show next message in queue"""
         if not self.message_queue:
-            print(f"[Toast] Queue empty, nothing to show")
+            print("[Toast] Queue empty, nothing to show")
             self.is_showing = False
             return
 
@@ -149,10 +148,10 @@ class ToastNotification(QWidget):
 
         # Stop any ongoing animation/timer
         if self.animation.state() == QPropertyAnimation.State.Running:
-            print(f"[Toast] Stopping running animation")
+            print("[Toast] Stopping running animation")
             self.animation.stop()
         if self.hide_timer.isActive():
-            print(f"[Toast] Stopping active timer")
+            print("[Toast] Stopping active timer")
             self.hide_timer.stop()
 
         self.label.setText(message)
@@ -175,7 +174,7 @@ class ToastNotification(QWidget):
         # Fade in
         self.opacity_effect.setOpacity(0)
         self.show()
-        print(f"[Toast] Starting fade in animation")
+        print("[Toast] Starting fade in animation")
 
         self.animation.setDuration(300)
         self.animation.setStartValue(0)
@@ -188,9 +187,9 @@ class ToastNotification(QWidget):
         self.hide_timer.start(duration)
 
     def _fade_out(self):
-        print(f"[Toast] _fade_out called")
+        print("[Toast] _fade_out called")
         if self.animation.state() == QPropertyAnimation.State.Running:
-            print(f"[Toast] Animation already running, stopping it first")
+            print("[Toast] Animation already running, stopping it first")
             self.animation.stop()
 
         self.animation.setDuration(300)
@@ -200,15 +199,16 @@ class ToastNotification(QWidget):
         # Disconnect previous connections to avoid duplicates
         try:
             self.animation.finished.disconnect()
-        except:
-            pass
+        except Exception:
+            # If there was no connection, ignore
+            print("[Toast] No previous finished connection to disconnect")
 
         self.animation.finished.connect(self._on_fade_complete)
-        print(f"[Toast] Starting fade out animation")
+        print("[Toast] Starting fade out animation")
         self.animation.start()
 
     def _on_fade_complete(self):
-        print(f"[Toast] Fade out complete, hiding widget")
+        print("[Toast] Fade out complete, hiding widget")
         self.hide()
 
         # Show next message in queue after a short delay

@@ -161,7 +161,7 @@ class AIServer:
                 # 아무것도 감지 안됨
                 if len(all_detections) > 0:
                     print(
-                        f"[AI Server] ⏸️  Detections exist but no main event (cooldown or other)"
+                        "[AI Server] ⏸️  Detections exist but no main event (cooldown or other)"
                     )
                 # else: 아무것도 없음 (로그 안 함)
 

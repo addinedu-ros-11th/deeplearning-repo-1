@@ -1,5 +1,4 @@
 import threading
-import time
 
 from network.udp_handler import UDPFrameReceiver, UDPFrameSender
 from network.tcp_server import TCPServer
@@ -185,11 +184,11 @@ class MainPC2Hub:
             return {"status": "ERROR", "reason": "Failed to start session"}
 
     def _handle_ui_checkout(self) -> dict:
-        print(f"[Main Hub] 🛒 CHECKOUT REQUEST RECEIVED")
+        print("[Main Hub] 🛒 CHECKOUT REQUEST RECEIVED")
         print(f"[Main Hub]   Current session_id: {self.session_id}")
 
         if not self.session_id:
-            print(f"[Main Hub] ❌ NO ACTIVE SESSION")
+            print("[Main Hub] ❌ NO ACTIVE SESSION")
             return {"status": "NO_ACTIVE_SESSION"}
 
         # 1. Get all cart items from the database for the current session
@@ -201,7 +200,7 @@ class MainPC2Hub:
             self.logger.log_event("SESSION", "Checkout initiated for an empty cart.")
             total_amount = 0
             total_items = 0
-            print(f"[Main Hub] ⚠️  Empty cart checkout")
+            print("[Main Hub] ⚠️  Empty cart checkout")
         else:
             # 2. Calculate total amount and item count
             total_amount = sum(

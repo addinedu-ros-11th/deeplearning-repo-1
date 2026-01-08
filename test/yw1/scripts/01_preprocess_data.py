@@ -1,5 +1,4 @@
 # scripts/01_preprocess_data.py
-import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 import shutil
@@ -25,11 +24,12 @@ PROCESSED_DATA_DIR = ROOT_DIR / "test" / "yw1" / "data" / "processed"
 IMAGES_DIR = PROCESSED_DATA_DIR / "images"
 LABELS_DIR = PROCESSED_DATA_DIR / "labels"
 
+
 def convert_rbox_to_yolo_obb(image_width, image_height, rbox_points, class_id):
     """
     Converts rotated bounding box points to normalized YOLO OBB format.
     YOLO OBB format: <class_id> <x1> <y1> <x2> <y2> <x3> <y3> <x4> <y4> (normalized)
-    
+
     Args:
         image_width (int): Width of the image.
         image_height (int): Height of the image.
@@ -47,10 +47,11 @@ def convert_rbox_to_yolo_obb(image_width, image_height, rbox_points, class_id):
 
     return f"{class_id} " + " ".join(map(str, normalized_points))
 
+
 def parse_cvat_xml(xml_file, image_path):
     """
     Parses a CVAT XML file for rotated bounding boxes (rbox) and converts them to YOLO OBB format.
-    
+
     Args:
         xml_file (Path): Path to the CVAT XML annotation file.
         image_path (Path): Path to the corresponding image file.
@@ -60,9 +61,9 @@ def parse_cvat_xml(xml_file, image_path):
     """
     tree = ET.parse(xml_file)
     root = tree.getroot()
-    
+
     yolo_obb_lines = []
-    
+
     # Get image dimensions from the XML or by reading the image
     image_width = int(root.find("image").get("width"))
     image_height = int(root.find("image").get("height"))
@@ -78,24 +79,29 @@ def parse_cvat_xml(xml_file, image_path):
 
     for image_tag in root.findall("image"):
         for box in image_tag.findall("polygon"):
-            if box.get("rbox"): # Check if it's a rotated box
+            if box.get("rbox"):  # Check if it's a rotated box
                 label = box.get("label")
                 if label not in CLASS_MAPPING:
-                    print(f"Warning: Skipping unknown class '{label}' in {xml_file.name}")
+                    print(
+                        f"Warning: Skipping unknown class '{label}' in {xml_file.name}"
+                    )
                     continue
 
                 class_id = CLASS_MAPPING[label]
-                
+
                 # Points are stored as 'x1,y1;x2,y2;x3,y3;x4,y4'
-                points_str = box.get("points").split(';')
-                rbox_points = [tuple(map(float, p.split(','))) for p in points_str]
+                points_str = box.get("points").split(";")
+                rbox_points = [tuple(map(float, p.split(","))) for p in points_str]
 
                 # Ensure there are 4 points
                 if len(rbox_points) == 4:
-                    yolo_obb_line = convert_rbox_to_yolo_obb(image_width, image_height, rbox_points, class_id)
+                    yolo_obb_line = convert_rbox_to_yolo_obb(
+                        image_width, image_height, rbox_points, class_id
+                    )
                     yolo_obb_lines.append(yolo_obb_line)
 
     return image_width, image_height, yolo_obb_lines
+
 
 def process_raw_data():
     """
@@ -111,18 +117,20 @@ def process_raw_data():
           ...
     """
     print("Starting data preprocessing...")
-    
+
     # Clean and create directories
     if PROCESSED_DATA_DIR.exists():
         shutil.rmtree(PROCESSED_DATA_DIR)
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     LABELS_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     annotations_xml = RAW_DATA_DIR / "annotations.xml"
     raw_images_dir = RAW_DATA_DIR / "images"
 
     if not annotations_xml.exists() or not raw_images_dir.exists():
-        print(f"Error: Ensure 'annotations.xml' and an 'images' folder exist in '{RAW_DATA_DIR}'")
+        print(
+            f"Error: Ensure 'annotations.xml' and an 'images' folder exist in '{RAW_DATA_DIR}'"
+        )
         # Create placeholder files and folders for the user
         RAW_DATA_DIR.mkdir(exist_ok=True)
         raw_images_dir.mkdir(exist_ok=True)
@@ -138,37 +146,42 @@ def process_raw_data():
 
     for image_tag in tqdm(root.findall("image"), desc="Processing images"):
         image_name = image_tag.get("name")
-        image_id = image_tag.get("id")
-        
+
         # Find the source image file
         source_image_path = raw_images_dir / image_name
         if not source_image_path.exists():
-            print(f"Warning: Image '{image_name}' not found in '{raw_images_dir}'. Skipping.")
+            print(
+                f"Warning: Image '{image_name}' not found in '{raw_images_dir}'. Skipping."
+            )
             continue
 
         # Copy image to processed directory
         dest_image_path = IMAGES_DIR / source_image_path.name
         shutil.copy(source_image_path, dest_image_path)
-        
+
         # --- Create Label File ---
         image_width = int(image_tag.get("width"))
         image_height = int(image_tag.get("height"))
-        
+
         yolo_obb_lines = []
         # Find polygons associated with this image
         for poly in image_tag.findall("polygon"):
-            if poly.get("rbox"): # Oriented Bounding Box
+            if poly.get("rbox"):  # Oriented Bounding Box
                 label = poly.get("label")
                 if label not in CLASS_MAPPING:
-                    print(f"Warning: Skipping unknown class '{label}' for image '{image_name}'")
+                    print(
+                        f"Warning: Skipping unknown class '{label}' for image '{image_name}'"
+                    )
                     continue
-                
+
                 class_id = CLASS_MAPPING[label]
-                points_str = poly.get("points").split(';')
-                rbox_points = [tuple(map(float, p.split(','))) for p in points_str]
+                points_str = poly.get("points").split(";")
+                rbox_points = [tuple(map(float, p.split(","))) for p in points_str]
 
                 if len(rbox_points) == 4:
-                    yolo_line = convert_rbox_to_yolo_obb(image_width, image_height, rbox_points, class_id)
+                    yolo_line = convert_rbox_to_yolo_obb(
+                        image_width, image_height, rbox_points, class_id
+                    )
                     yolo_obb_lines.append(yolo_line)
 
         # Write the label file
@@ -183,6 +196,7 @@ def process_raw_data():
     print(f"Images saved to: {IMAGES_DIR}")
     print(f"Labels saved to: {LABELS_DIR}")
     print("-" * 30)
+
 
 if __name__ == "__main__":
     process_raw_data()

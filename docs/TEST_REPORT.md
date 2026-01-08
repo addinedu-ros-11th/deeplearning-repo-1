@@ -26,8 +26,8 @@
 - TCP/UDP 네트워킹
 
 ### 카메라 설정
-- 카메라 0: 내장 카메라 (장애물 감지)
-- 카메라 2: USB 웹캠 (제품 인식)
+- 카메라 0: 내장 카메라 (제품 인식)
+- 카메라 2: USB 웹캠 (장애물 감지)
 - ROI 설정: entry_threshold=0.55, trigger_threshold=0.70, min_movement=80px
 - 쿨다운: 3초
 

@@ -17,7 +17,6 @@ from PyQt6.QtWidgets import (
     QFrame,
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
 
 
 class DangerLevel(Enum):
@@ -237,7 +236,7 @@ class CartDashboard(QMainWindow):
 
         self.total_price = total
         self.total_label.setText(f"₩ {int(self.total_price)}")
-        print(f"[Dashboard] Cart display updated successfully", flush=True)
+        print("[Dashboard] Cart display updated successfully", flush=True)
 
     def set_danger_level(self, level: DangerLevel):
         self.led.set_level(level)

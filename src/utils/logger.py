@@ -1,6 +1,5 @@
 import logging
 import os
-from datetime import datetime
 
 class SystemLogger:
     def __init__(self, name="SmartCart", log_file="logs/system.log"):

@@ -28,12 +28,12 @@ def check_camera(camera_id):
     # 프레임 캡처 테스트
     ret, frame = cap.read()
     if ret:
-        print(f"  - 상태: 정상 작동")
+        print("  - 상태: 정상 작동")
         cv2.imshow(f"Camera {camera_id} - Press any key to continue", frame)
         cv2.waitKey(2000)  # 2초 표시
         cv2.destroyAllWindows()
     else:
-        print(f"  - 상태: 프레임 캡처 실패")
+        print("  - 상태: 프레임 캡처 실패")
 
     cap.release()
     return True

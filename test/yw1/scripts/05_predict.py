@@ -2,12 +2,11 @@
 from ultralytics import YOLO
 from pathlib import Path
 import torch
-import os
 
 # --- Configuration ---
 # IMPORTANT: You must update this path to point to the specific training run you want to use for prediction.
 PROJECT_NAME = "yolo_obb_training"
-RUN_NAME = "25123101_yolov8n-obb" # This should match the 'RUN_NAME' from your training script
+RUN_NAME = "25123100_add_labelling" # This should match the 'RUN_NAME' from your training script
 # 25123100_add_labelling
 # 25123101_yolov8n-obb
 WEIGHTS_NAME = "best.pt"
@@ -16,7 +15,8 @@ WEIGHTS_NAME = "best.pt"
 ROOT_DIR = Path(__file__).resolve().parents[2]
 RUNS_DIR = ROOT_DIR  / "yw1" / "runs" / "train"
 WEIGHTS_PATH = RUNS_DIR / RUN_NAME / "weights" / WEIGHTS_NAME
-#WEIGHTS_PATH = ROOT_DIR / "yw1" / "runs" /"best_251231.pt"
+#WEIGHTS_PATH = ROOT_DIR / "yw1" / "runs" /"best_251229.pt"
+# best_251231
 # Source for image prediction
 SOURCE_DIR = ROOT_DIR / "yw1" / "data" / "inference" / "input"
 # Directory to save prediction results.

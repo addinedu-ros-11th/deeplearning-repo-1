@@ -1,0 +1,5 @@
+train: /home/changpc/Documents/1231_Total/train/images
+val: /home/changpc/Documents/1231_Total/val/images
+
+nc: 2
+names: ['Cart', 'Person']

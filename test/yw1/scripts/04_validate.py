@@ -34,7 +34,7 @@ def validate_model():
     if not WEIGHTS_PATH.exists():
         print(f"Error: Model weights not found at '{WEIGHTS_PATH}'")
         print("Please ensure the following:")
-        print(f"1. You have run the training script (03_train.py).")
+        print("1. You have run the training script (03_train.py).")
         print(f"2. The PROJECT_NAME ('{PROJECT_NAME}') and RUN_NAME ('{RUN_NAME}') variables match your training output folder.")
         return
 

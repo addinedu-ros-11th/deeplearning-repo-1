@@ -10,7 +10,6 @@ import threading
 import socket
 import json
 from typing import Optional, List, Dict
-from datetime import datetime
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
@@ -166,7 +165,7 @@ class UIController:
                 UIRequest.CHECKOUT,
                 {"session_id": self.current_session_id},
             )
-            print(f"[UI Controller] 📤 Sending CHECKOUT request to Main Hub...")
+            print("[UI Controller] 📤 Sending CHECKOUT request to Main Hub...")
             self._send_to_main(msg)
 
             print(
@@ -200,7 +199,7 @@ class UIController:
                 },
             )
             self._send_to_main(msg)
-            print(f"[UI Controller] ✅ Quantity update request sent")
+            print("[UI Controller] ✅ Quantity update request sent")
         except Exception as e:
             print(f"[UI Controller] ❌ Error updating quantity: {e}")
 
@@ -221,7 +220,7 @@ class UIController:
                 },
             )
             self._send_to_main(msg)
-            print(f"[UI Controller] ✅ Item removal request sent")
+            print("[UI Controller] ✅ Item removal request sent")
         except Exception as e:
             print(f"[UI Controller] ❌ Error removing item: {e}")
 
@@ -326,7 +325,7 @@ class UIController:
             data.extend(chunk)
 
         if len(data) < payload_length:
-            print(f"[UI Controller] Incomplete message received")
+            print("[UI Controller] Incomplete message received")
             return
 
         self._handle_message(bytes(data))
@@ -375,12 +374,11 @@ class UIController:
         prev_dict = {
             item["product_id"]: item["quantity"] for item in self.previous_cart_items
         }
-        curr_dict = {item["product_id"]: item["quantity"] for item in items}
 
         # Find products with increased quantity
         for item in items:
-            product_id = item["product_id"]
-            prev_qty = prev_dict.get(product_id, 0)
+            pid = item["product_id"]
+            prev_qty = prev_dict.get(pid, 0)
             curr_qty = item["quantity"]
 
             if curr_qty > prev_qty:
@@ -408,7 +406,6 @@ class UIController:
 
     def _handle_add_to_cart(self, content: dict):
         """Handle ADD_TO_CART command (legacy)"""
-        product_id = content.get("product_id")
         product_name = content.get("name", "Unknown Product")
 
         print(f"[UI Controller] ADD_TO_CART: {product_name}")

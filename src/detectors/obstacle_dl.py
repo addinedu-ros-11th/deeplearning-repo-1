@@ -1,5 +1,4 @@
 from ultralytics import YOLO
-import cv2
 from common.config import config
 
 

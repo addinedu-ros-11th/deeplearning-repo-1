@@ -242,7 +242,7 @@ class OptimizedHybridCameraApp:
                     # 추가됨 알림
                     cv2.putText(
                         display_frame,
-                        f"PRODUCT ADDED TO CART!",
+                        "PRODUCT ADDED TO CART!",
                         (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.8,

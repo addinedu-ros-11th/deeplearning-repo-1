@@ -112,9 +112,9 @@ class SmartCartEngine:
         msg = Protocol.ui_command(
             UICommand.UPDATE_CART, {"items": cart_items, "total": total}
         )
-        print(f"[Engine] Sending UPDATE_CART to UI...")
+        print("[Engine] Sending UPDATE_CART to UI...")
         self.ui_client.send_request(msg)
-        print(f"[Engine] UPDATE_CART sent successfully")
+        print("[Engine] UPDATE_CART sent successfully")
 
     def _is_new_product_detection(self, product_id: int) -> bool:
         """Internal helper to check for duplicate product detections."""
@@ -149,7 +149,7 @@ class SmartCartEngine:
             UICommand.UPDATE_CART, {"items": cart_items, "total": total}
         )
         self.ui_client.send_request(msg)
-        print(f"[Engine] Quantity updated, cart refreshed")
+        print("[Engine] Quantity updated, cart refreshed")
 
     def remove_cart_item(self, session_id: int, product_id: int):
         """Remove a specific product from cart"""
@@ -166,7 +166,7 @@ class SmartCartEngine:
             UICommand.UPDATE_CART, {"items": cart_items, "total": total}
         )
         self.ui_client.send_request(msg)
-        print(f"[Engine] Item removed, cart refreshed")
+        print("[Engine] Item removed, cart refreshed")
 
     def reset(self) -> None:
         """Resets the engine's session state."""

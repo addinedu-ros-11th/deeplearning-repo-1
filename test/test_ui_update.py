@@ -51,13 +51,13 @@ def main():
 
     # 4. 장바구니에 추가
     tx_dao.add_cart_item(session_id=session_id, product_id=product_id, quantity=1)
-    print(f"[Test] Item added to cart")
+    print("[Test] Item added to cart")
 
     # 5. 장바구니 조회
     cart_items = tx_dao.list_cart_items(session_id)
     total = sum(item["subtotal"] for item in cart_items)
 
-    print(f"\n[Test] Current cart:")
+    print("\n[Test] Current cart:")
     for item in cart_items:
         print(
             f"  - {item['product_name']}: {item['quantity']}개 x ₩{item['price']} = ₩{item['subtotal']}"
@@ -65,7 +65,7 @@ def main():
     print(f"  Total: ₩{total}")
 
     # 6. UI에 UPDATE_CART 명령 전송
-    print(f"\n[Test] Sending UPDATE_CART to UI...")
+    print("\n[Test] Sending UPDATE_CART to UI...")
     ui_client = TCPClient("127.0.0.1", config.network.pc3_ui.ui_port)
 
     msg = Protocol.ui_command(
@@ -74,9 +74,9 @@ def main():
 
     print(f"[Test] Message payload: {msg}")
     ui_client.send_request(msg)
-    print(f"[Test] UPDATE_CART sent successfully!")
+    print("[Test] UPDATE_CART sent successfully!")
 
-    print(f"\n[Test] ✓ Test completed. Check UI window for cart update.")
+    print("\n[Test] ✓ Test completed. Check UI window for cart update.")
 
 
 if __name__ == "__main__":

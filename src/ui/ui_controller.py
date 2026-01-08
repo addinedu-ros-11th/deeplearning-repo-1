@@ -125,7 +125,7 @@ class UIController:
                     data.extend(chunk)
 
                 if len(data) < payload_length:
-                    print(f"[UI] Incomplete message received", flush=True)
+                    print("[UI] Incomplete message received", flush=True)
                     continue
 
                 self._handle_message(bytes(data))
