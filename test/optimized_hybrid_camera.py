@@ -18,6 +18,7 @@ from network.udp_handler import UDPFrameSender
 from common.config import config
 from utils.image_proc import ImageProcessor
 from detectors.product_dl import ProductRecognizer
+from detectors.obstacle_dl import ObstacleDetector
 
 
 class OptimizedHybridCameraApp:
@@ -67,9 +68,18 @@ class OptimizedHybridCameraApp:
         self.product_recognizer = ProductRecognizer()
         print("모델 로딩 완료!")
 
+        # Obstacle detector for front camera visualization
+        print("장애물 감지 모델 로딩 중...")
+        self.obstacle_detector = ObstacleDetector()
+        print("장애물 감지 모델 로딩 완료!")
+
         # Frame queues for display
         self.front_frame_queue = Queue(maxsize=2)
         self.cart_frame_queue = Queue(maxsize=2)
+
+        # Last obstacle detection result
+        self.last_obstacle_result = None
+        self.obstacle_lock = threading.Lock()
 
         self.is_running = True
 
@@ -81,14 +91,18 @@ class OptimizedHybridCameraApp:
         print("=" * 60)
 
     def _capture_video_thread(self):
-        """전방 웹캠 캡처 스레드"""
+        """전방 웹캠 캡처 스레드 (장애물 감지 포함)"""
         print(f"[전방] 웹캠 {self.front_cam_id} 캡처 시작")
+        frame_count = 0
+
         while self.is_running:
             ret, frame = self.front_cap.read()
 
             if not ret:
                 time.sleep(0.1)
                 continue
+
+            frame_count += 1
 
             # 리사이즈
             resized = ImageProcessor.resize_for_ai(
@@ -98,13 +112,172 @@ class OptimizedHybridCameraApp:
             # UDP 전송
             self.front_sender.send_frame(resized)
 
+            # 장애물 감지 (2프레임마다)
+            if frame_count % 2 == 0:
+                try:
+                    result = self.obstacle_detector.detect(resized)
+                    with self.obstacle_lock:
+                        self.last_obstacle_result = result
+                except Exception as e:
+                    print(f"[전방] 장애물 감지 오류: {e}")
+
+            # 디스플레이용 프레임 생성 (시각화 포함)
+            display_frame = resized.copy()
+
+            with self.obstacle_lock:
+                if self.last_obstacle_result:
+                    display_frame = self._draw_obstacle_info(
+                        display_frame, self.last_obstacle_result
+                    )
+
             # 디스플레이 큐에 추가
             if not self.front_frame_queue.full():
-                self.front_frame_queue.put(resized.copy())
+                self.front_frame_queue.put(display_frame)
 
             time.sleep(self.video_interval)
 
         print("[전방] 캡처 종료")
+
+    def _draw_obstacle_info(self, frame, result):
+        """장애물 감지 결과를 프레임에 표시"""
+        h, w = frame.shape[:2]
+
+        # 위험 레벨 정보
+        level = result.get("level", 0)
+        risk_names = ["SAFE", "CAUTION", "WARN"]
+        risk_colors = [(0, 255, 0), (0, 255, 255), (0, 0, 255)]  # Green, Yellow, Red
+
+        risk_name = risk_names[level]
+        risk_color = risk_colors[level]
+
+        # 배경 오버레이 (상단)
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (0, 0), (w, 100), (0, 0, 0), -1)
+        frame = cv2.addWeighted(frame, 0.6, overlay, 0.4, 0)
+
+        # 위험 레벨 크게 표시
+        cv2.putText(
+            frame,
+            f"Risk: {risk_name}",
+            (10, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.2,
+            risk_color,
+            3,
+        )
+
+        # 객체 개수
+        obj_count = len(result.get("objects", []))
+        cv2.putText(
+            frame,
+            f"Objects: {obj_count}",
+            (10, 75),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 255, 255),
+            2,
+        )
+
+        # 모든 감지된 객체 박스 그리기
+        for obj in result.get("objects", []):
+            box = obj.get("box", [0, 0, 0, 0])
+            x1, y1, x2, y2 = box
+            track_id = obj.get("track_id", -1)
+            risk_level = obj.get("risk_level", 0)
+            class_name = obj.get("class_name", "unknown")
+            confidence = obj.get("confidence", 0.0)
+
+            # 위험도에 따른 색상
+            box_color = risk_colors[risk_level]
+            thickness = 3 if risk_level >= 1 else 2
+
+            # 박스 그리기
+            cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, thickness)
+
+            # 라벨 배경
+            label = f"{class_name} #{track_id}"
+            label_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+            cv2.rectangle(
+                frame,
+                (x1, y1 - label_size[1] - 10),
+                (x1 + label_size[0] + 10, y1),
+                box_color,
+                -1,
+            )
+
+            # 라벨 텍스트
+            cv2.putText(
+                frame,
+                label,
+                (x1 + 5, y1 - 5),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 255),
+                2,
+            )
+
+            # 추가 정보 (박스 하단)
+            info_lines = []
+            if obj.get("in_center"):
+                info_lines.append("CENTER")
+            if obj.get("approaching"):
+                info_lines.append("APPROACHING")
+
+            pttc = obj.get("pttc_s", 1e9)
+            if pttc < 1e6:
+                info_lines.append(f"TTC:{pttc:.1f}s")
+
+            if info_lines:
+                info_text = " | ".join(info_lines)
+                cv2.putText(
+                    frame,
+                    info_text,
+                    (x1, y2 + 20),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    box_color,
+                    2,
+                )
+
+        # 최고 위험 객체 정보 (하단)
+        highest_risk = result.get("highest_risk_object")
+        if highest_risk:
+            track_id = highest_risk.get("track_id", -1)
+            pttc = highest_risk.get("pttc_s", 1e9)
+            risk_score = highest_risk.get("score", 0.0)
+
+            # 하단 정보 배경
+            overlay = frame.copy()
+            cv2.rectangle(overlay, (0, h - 60), (w, h), (0, 0, 0), -1)
+            frame = cv2.addWeighted(frame, 0.6, overlay, 0.4, 0)
+
+            info_text = f"Highest Risk: Track #{track_id}"
+            cv2.putText(
+                frame,
+                info_text,
+                (10, h - 35),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2,
+            )
+
+            if pttc < 1e6:
+                pttc_text = f"pTTC: {pttc:.1f}s | Score: {risk_score:.1f}"
+            else:
+                pttc_text = f"Score: {risk_score:.1f}"
+
+            cv2.putText(
+                frame,
+                pttc_text,
+                (10, h - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 255),
+                2,
+            )
+
+        return frame
 
     def _capture_webcam_thread(self):
         """웹캠 캡처 스레드 (상품 인식 포함 - 모션 트리거)"""

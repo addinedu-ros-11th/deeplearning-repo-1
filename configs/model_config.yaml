@@ -1,11 +1,38 @@
-# AI 모델 관련 설정
-obstacle_detector:
-  weights: "models/obstacle_detector/dummy.pt"
-  confidence: 0.5
-  iou_threshold: 0.45
-  danger_threshold_low: 0.3
-  danger_threshold_high: 0.7
+models:
+  # dev 환경에 맞는 모델 경로 (필요시 수정)
+  weights: "test/changhee/cart_person_integrated.pt"
 
-product_recognizer:
-  weights: "models/product_recognizer/product_yolov8s.pt"
-  confidence: 0.6
+inference:
+  conf: 0.35
+  iou: 0.5
+  imgsz: 640
+  device: "0"
+  verbose: false
+
+tracking:
+  tracker: "bytetrack.yaml"
+  persist: true
+
+risk:
+  center_band_ratio: 0.45
+  near_center_band_ratio: 0.65
+  ema_alpha: 0.35
+  closing_rate_min: 0.02
+  streak_warn: 8
+  streak_caution: 4
+  pttc_warn_s: 2.0
+  pttc_caution_s: 4.0
+  mega_close_boxh_ratio: 0.55
+  mega_close_area_ratio: 0.35
+  hysteresis_frames: 10
+  stale_frames: 30
+  class_weights:
+    Person: 1.0
+    Cart: 0.8
+  center_bonus: 0.2
+  approach_bonus: 0.2
+
+output:
+  base_dir: "runs_obstacle"
+  csv_name: "events.csv"
+  save_snapshots: true

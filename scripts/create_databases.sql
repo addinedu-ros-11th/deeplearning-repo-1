@@ -51,7 +51,12 @@ CREATE TABLE `obstacle_logs` (
   `speed` float COMMENT '상대 속도 (단위: m/s)',
   `direction` varchar(20) COMMENT '방향 (FRONT, LEFT 등)',
   `is_warning` boolean NOT NULL DEFAULT false COMMENT '충돌 경고 발생 여부',
-  `detected_at` datetime NOT NULL DEFAULT (CURRENT_TIMESTAMP) COMMENT '감지 시간'
+  `detected_at` datetime NOT NULL DEFAULT (CURRENT_TIMESTAMP) COMMENT '감지 시간',
+  `track_id` int DEFAULT -1 COMMENT 'YOLO Tracking ID (객체 추적용)',
+  `pttc_s` float DEFAULT NULL COMMENT 'Predicted Time To Collision (초)',
+  `risk_score` float DEFAULT NULL COMMENT 'Risk Score (위험도 점수)',
+  `in_center` boolean DEFAULT false COMMENT '중앙 영역 위치 여부',
+  `approaching` boolean DEFAULT false COMMENT '접근 중 여부'
 );
 
 CREATE TABLE `orders` (
@@ -89,9 +94,13 @@ CREATE INDEX `obstacle_logs_index_8` ON `obstacle_logs` (`session_id`, `is_warni
 
 CREATE INDEX `obstacle_logs_index_9` ON `obstacle_logs` (`detected_at`);
 
-CREATE INDEX `orders_index_10` ON `orders` (`purchased_at`);
+CREATE INDEX `obstacle_logs_index_10` ON `obstacle_logs` (`track_id`);
 
-CREATE INDEX `order_details_index_11` ON `order_details` (`order_id`);
+CREATE INDEX `obstacle_logs_index_11` ON `obstacle_logs` (`is_warning`, `risk_score`);
+
+CREATE INDEX `orders_index_12` ON `orders` (`purchased_at`);
+
+CREATE INDEX `order_details_index_13` ON `order_details` (`order_id`);
 
 ALTER TABLE `categories` COMMENT = 'TB-01: 상품 카테고리 마스터 (아이스크림, 과자, 라면 등)';
 

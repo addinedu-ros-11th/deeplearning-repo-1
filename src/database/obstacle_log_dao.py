@@ -19,7 +19,20 @@ class ObstacleLogDAO:
         speed: float,
         direction: str,
         is_warning: bool,
+        track_id: int = -1,
+        pttc_s: float = None,
+        risk_score: float = None,
+        in_center: bool = False,
+        approaching: bool = False,
     ) -> None:
+        """
+        장애물 감지 이벤트를 로그에 기록
+        - track_id: YOLO tracking ID (추적 기반 감지)
+        - pttc_s: Predicted Time To Collision (초)
+        - risk_score: 위험도 점수
+        - in_center: 중앙 영역 위치 여부
+        - approaching: 접근 중 여부
+        """
         query = """
             INSERT INTO obstacle_logs (
                 session_id,
@@ -28,9 +41,14 @@ class ObstacleLogDAO:
                 speed,
                 direction,
                 is_warning,
-                detected_at
+                detected_at,
+                track_id,
+                pttc_s,
+                risk_score,
+                in_center,
+                approaching
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         self.db.execute(
             query,
@@ -42,6 +60,11 @@ class ObstacleLogDAO:
                 direction,
                 is_warning,
                 datetime.now(),
+                track_id,
+                pttc_s,
+                risk_score,
+                in_center,
+                approaching,
             ),
         )
 

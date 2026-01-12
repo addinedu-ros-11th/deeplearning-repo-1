@@ -1,12 +1,62 @@
 #!/usr/bin/env python3
 import pymysql
 
-# DB connection info from .env
-DB_HOST = "database-1.chu0kq8imwi9.ap-northeast-2.rds.amazonaws.com"
-DB_PORT = 3306
-DB_USER = "root"
-DB_PASSWORD = "Q!w2e3r4t5"
-DB_NAME = "smart_cart_db"
+# DB connection info (loaded from project config / .env)
+import os
+
+try:
+    # Prefer the project config (configs/db_config.yaml uses ${VAR} substitution)
+    from src.common.config import config  # works when running from repo root
+except Exception:
+    config = None
+
+
+def _get_db_config():
+    """
+    Load DB config from `config.db.aws_rds` (preferred) or fallback to environment variables.
+    Raises RuntimeError if required values are missing.
+    """
+    host = port = user = password = database = None
+
+    if config and getattr(config, "db", None) and getattr(config.db, "aws_rds", None):
+        aws = config.db.aws_rds
+        host = aws.get("host")
+        port = aws.get("port")
+        user = aws.get("user")
+        password = aws.get("password")
+        database = aws.get("database")
+
+    # Fallback to environment variables
+    host = host or os.getenv("DB_HOST")
+    port = port or os.getenv("DB_PORT")
+    user = user or os.getenv("DB_USER")
+    password = password or os.getenv("DB_PASSWORD")
+    database = database or os.getenv("DB_NAME")
+
+    if port is not None:
+        try:
+            port = int(port)
+        except ValueError:
+            raise RuntimeError("DB_PORT must be an integer")
+
+    missing = [
+        name
+        for name, val in (
+            ("DB_HOST", host),
+            ("DB_PORT", port),
+            ("DB_USER", user),
+            ("DB_PASSWORD", password),
+            ("DB_NAME", database),
+        )
+        if not val
+    ]
+    if missing:
+        raise RuntimeError(f"Missing DB configuration for: {', '.join(missing)}")
+
+    return host, port, user, password, database
+
+
+DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME = _get_db_config()
 
 conn = pymysql.connect(
     host=DB_HOST,

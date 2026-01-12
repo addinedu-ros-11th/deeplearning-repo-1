@@ -39,6 +39,7 @@ class DetectorConfig(BaseModel):
     iou_threshold: Optional[float] = None
     danger_threshold_low: Optional[float] = None
     danger_threshold_high: Optional[float] = None
+    risk: Optional[Dict[str, Any]] = None  # Risk engine configuration (obstacle_v2)
 
 
 class ModelConfig(BaseModel):

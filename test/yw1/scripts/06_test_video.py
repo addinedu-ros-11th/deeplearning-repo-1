@@ -14,7 +14,7 @@ import shutil
 # You might need to adjust RUN_NAME to match your actual training run.
 ROOT_DIR = Path(__file__).resolve().parents[3]
 RUNS_DIR = ROOT_DIR /"test"/ "yw1" / "runs" / "train"
-RUN_NAME = "obb_negative"
+RUN_NAME = "rot_cvat_labeling"
 # Example: WEIGHTS_PATH = RUNS_DIR / "your_run_name" / "weights" / "best.pt"
 WEIGHTS_PATH = ROOT_DIR / "models" / "product_recognizer" / (RUN_NAME+".pt") 
 

@@ -93,8 +93,8 @@ class AIServer:
     # =========================
     def _obstacle_inference_loop(self):
         print("Obstacle inference loop started.")
-        frame_index = 0
-        last_inference_time = time.time()
+        last_sent_level = None  # Track last sent level to avoid redundant events
+
         while True:
             with self._obstacle_lock:
                 jpeg = self._latest_obstacle_bytes
@@ -107,29 +107,17 @@ class AIServer:
             frame = self._decode(jpeg)
             if frame is None:
                 continue
-            
-            # Calculate FPS
-            current_time = time.time()
-            fps = 1.0 / (current_time - last_inference_time) if (current_time - last_inference_time) > 0 else 30.0
-            last_inference_time = current_time
 
-            # Use the new ObstacleDetectorV2
-            detection_results = self.obstacle_model.detect_and_assess(frame, frame_index=frame_index, fps=fps)
-            
-            # The entire detection_results (including danger_level, objects, annotated_frame)
-            # is now passed as the data payload.
-            # The SmartCartEngine will then parse this detailed data.
-            # We don't filter by DangerLevel here, let the engine decide when to log/alarm
-            self._push_event(AIEvent.OBSTACLE_DANGER, {
-                "detection_results": detection_results, 
-                "frame_index": frame_index, 
-                "fps": fps
-            })
+            result = self.obstacle_model.detect(frame)
+            level = DangerLevel(result.get("level", 0))
 
-            frame_index += 1
-            # Do not sleep here, as processing time might vary and we want to process frames as fast as possible
-            # The UDP receiver loop will naturally provide frames at its rate.
-            # time.sleep(0.01) # Removed explicit sleep, rely on frame processing time
+            # Send event only when level changes (including SAFE transitions)
+            # This prevents spamming the Main Hub with identical states
+            if level != last_sent_level:
+                self._push_event(AIEvent.OBSTACLE_DANGER, result)
+                last_sent_level = level
+
+            time.sleep(0.05)  # Control inference frequency
 
     def _product_inference_loop(self):
         print("Product inference loop started.")

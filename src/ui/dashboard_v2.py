@@ -52,6 +52,12 @@ class LEDWidget(QFrame):
         self._update_style()
 
     def set_level(self, level: DangerLevel):
+        # Handle both int and DangerLevel enum
+        if isinstance(level, int):
+            try:
+                level = DangerLevel(level)
+            except ValueError:
+                level = DangerLevel.NORMAL
         self.current_level = level
         self._update_style()
 
@@ -60,8 +66,11 @@ class LEDWidget(QFrame):
             DangerLevel.NORMAL: "#4CAF50",  # Green
             DangerLevel.CAUTION: "#FFC107",  # Yellow
             DangerLevel.CRITICAL: "#F44336",  # Red
+            0: "#4CAF50",  # SAFE (backward compatibility)
+            1: "#FFC107",  # CAUTION
+            2: "#F44336",  # WARN/CRITICAL
         }
-        color = color_map[self.current_level]
+        color = color_map.get(self.current_level, "#4CAF50")
         radius = self.width() // 2
         self.setStyleSheet(
             f"""
@@ -502,10 +511,7 @@ class CartDashboard(QMainWindow):
         led_container.addStretch()
         layout.addLayout(led_container)
 
-        self.obstacle_text = QLabel("No Obstacles")
-        self.obstacle_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.obstacle_text.setFont(QFont("Arial", 12))
-        layout.addWidget(self.obstacle_text)
+        # Removed obstacle_text - LED indicator is sufficient
 
         layout.addSpacing(30)
 
@@ -655,16 +661,7 @@ class CartDashboard(QMainWindow):
     def set_danger_level(self, level: DangerLevel, message: str = ""):
         """Update obstacle danger level"""
         self.led.set_level(level)
-
-        if level == DangerLevel.CRITICAL:
-            self.obstacle_text.setText(f"⚠️ {message or 'Critical Warning!'}")
-            self.obstacle_text.setStyleSheet("color: #F44336; font-weight: bold;")
-        elif level == DangerLevel.CAUTION:
-            self.obstacle_text.setText(f"⚠️ {message or 'Caution'}")
-            self.obstacle_text.setStyleSheet("color: #FFC107; font-weight: bold;")
-        else:
-            self.obstacle_text.setText("✅ Clear")
-            self.obstacle_text.setStyleSheet("color: #4CAF50;")
+        # LED indicator only - no text message needed
 
     def reset_cart(self):
         """Reset cart to empty state"""

@@ -40,123 +40,88 @@ class SmartCartEngine:
         self._last_product_id: Optional[int] = None
         self._last_product_ts: float = 0.0
 
-    def process_obstacle_event(self, data: Dict[str, Any], session_id: int, frame_index: int = 0, fps: float = 30.0):
-        """Processes an obstacle danger event from the AI using the new ObstacleDetectorV2."""
-        
-        # 'data' here is expected to be the raw frame (numpy array)
-        detection_results = self.obstacle_detector_v2.detect_and_assess(data, frame_index=frame_index, fps=fps)
-        
-        current_danger_level = DangerLevel.NORMAL
-        
-        # Determine the highest danger level from detected objects
-        # And prepare data for logging and UI command
-        if detection_results["objects"]:
-            highest_risk_level = RISK_SAFE
-            main_obstacle_info = {}
-            
-            for obj in detection_results["objects"]:
-                risk_level = obj["risk_level_name"]
-                
-                if risk_level == RISK_NAME[RISK_WARN]:
-                    highest_risk_level = max(highest_risk_level, RISK_WARN)
-                elif risk_level == RISK_NAME[RISK_CAUTION]:
-                    highest_risk_level = max(highest_risk_level, RISK_CAUTION)
-                
-                # For logging and UI, pick the most critical object or the first one if all are same level
-                if highest_risk_level == RISK_WARN and obj["risk_level_name"] == RISK_NAME[RISK_WARN]:
-                    main_obstacle_info = obj
-                    break # Found a WARN, prioritize it
-                elif highest_risk_level == RISK_CAUTION and obj["risk_level_name"] == RISK_NAME[RISK_CAUTION]:
-                    main_obstacle_info = obj
-                    # Don't break yet, in case a WARN appears later
-                elif not main_obstacle_info: # If no CAUTION or WARN yet, take the first safe one
-                    main_obstacle_info = obj
+    def process_obstacle_event(self, data: dict, session_id: int):
+        """
+        Processes an obstacle danger event from the AI.
+        Now supports advanced tracking and risk assessment from obstacle_v2.
+        """
+        level = DangerLevel(data["level"])
 
-            if highest_risk_level == RISK_WARN:
-                current_danger_level = DangerLevel.CRITICAL
-            elif highest_risk_level == RISK_CAUTION:
-                current_danger_level = DangerLevel.CAUTION
-            else:
-                current_danger_level = DangerLevel.NORMAL
-        
-            # 1. Log event to database
-            self.obstacle_dao.log_obstacle(
-                session_id=session_id,
-                object_type=main_obstacle_info.get("class", "UNKNOWN"),
-                distance=float(main_obstacle_info.get("dist_proxy", 1000.0)), # Using dist_proxy as approximate distance
-                speed=float(main_obstacle_info.get("closing_rate", 0.0)),     # Using closing_rate as approximate speed
-                direction="front", # New model doesn't explicitly provide direction, assuming front
-                is_warning=current_danger_level >= DangerLevel.CAUTION,
-                # Add new fields to log if schema allows, or concatenate into existing ones
-                # For now, mapping to existing fields
-            )
-            
-        else: # No objects detected, so normal
-            current_danger_level = DangerLevel.NORMAL
-            main_obstacle_info = {
-                "class": "NONE",
-                "track_id": -1,
-                "risk_level_name": RISK_NAME[RISK_SAFE],
-                "risk_score": 0.0,
-                "pttc_s": 1e9,
-                "dist_proxy": 1000.0,
-                "closing_rate": 0.0,
-                "box": [0,0,0,0]
-            }
-            # Log event to database for normal as well, if needed. For now, only caution/critical are logged.
-            self.obstacle_dao.log_obstacle(
-                session_id=session_id,
-                object_type=main_obstacle_info.get("class", "UNKNOWN"),
-                distance=float(main_obstacle_info.get("dist_proxy", 1000.0)),
-                speed=float(main_obstacle_info.get("closing_rate", 0.0)),
-                direction="front",
-                is_warning=current_danger_level >= DangerLevel.CAUTION,
-            )
+        # Extract detailed information from new algorithm
+        object_type = data.get("object_type", "UNKNOWN")
+        distance = data.get("distance", 1000)
+        speed = data.get("speed", 0)
+        direction = data.get("direction", "front")
 
-        # 2. Avoid sending duplicate events (only if danger level changes)
-        if current_danger_level == self.last_obstacle_level:
+        # New fields from risk_engine
+        highest_risk_obj = data.get("highest_risk_object")
+        track_id = highest_risk_obj.get("track_id", -1) if highest_risk_obj else -1
+        pttc_s = highest_risk_obj.get("pttc_s", 1e9) if highest_risk_obj else 1e9
+        risk_score = highest_risk_obj.get("score", 0.0) if highest_risk_obj else 0.0
+        in_center = (
+            highest_risk_obj.get("in_center", False) if highest_risk_obj else False
+        )
+        approaching = (
+            highest_risk_obj.get("approaching", False) if highest_risk_obj else False
+        )
+
+        # 1. Log event to database with enhanced tracking info
+        self.obstacle_dao.log_obstacle(
+            session_id=session_id,
+            object_type=object_type,
+            distance=distance,
+            speed=speed,
+            direction=direction,
+            is_warning=level >= DangerLevel.CAUTION,
+            track_id=track_id,
+            pttc_s=pttc_s,
+            risk_score=risk_score,
+            in_center=in_center,
+            approaching=approaching,
+        )
+
+        # 2. Check if level changed (send update to UI on any change)
+        if level == self.last_obstacle_level:
             return
-        self.last_obstacle_level = current_danger_level
-        
-        # 3. Send warning to UI if danger level is high enough
-        if current_danger_level >= DangerLevel.CAUTION:
-            ui_alarm_data = {
-                "level": current_danger_level.value,
-                "object_type": main_obstacle_info.get("class", "obstacle"),
-                "distance": float(main_obstacle_info.get("dist_proxy", 0)),
-                "speed": float(main_obstacle_info.get("closing_rate", 0)),
-                "direction": "front", # Assuming front, as new model doesn't provide explicit direction
-                "risk_level_name": main_obstacle_info.get("risk_level_name", "SAFE"),
-                "risk_score": float(main_obstacle_info.get("risk_score", 0.0)),
-                "pttc_s": float(main_obstacle_info.get("pttc_s", 1e9)),
-                "dist_proxy": float(main_obstacle_info.get("dist_proxy", 1000.0)),
-                "closing_rate": float(main_obstacle_info.get("closing_rate", 0.0)),
-                "track_id": int(main_obstacle_info.get("track_id", -1)),
-                "box": main_obstacle_info.get("box", [0,0,0,0])
-            }
-            msg = Protocol.ui_command(UICommand.SHOW_ALARM, ui_alarm_data)
-            self.ui_client.send_request(msg)
-            
-        elif current_danger_level == DangerLevel.NORMAL and self.last_obstacle_level != DangerLevel.NORMAL:
-            # If the danger level goes back to NORMAL, send a clear alarm command
-            ui_alarm_data = {
-                "level": DangerLevel.NORMAL.value,
-                "object_type": "NONE",
-                "distance": 0.0,
-                "speed": 0.0,
-                "direction": "none",
-                "risk_level_name": "SAFE",
-                "risk_score": 0.0,
-                "pttc_s": 1e9,
-                "dist_proxy": 1000.0,
-                "closing_rate": 0.0,
-                "track_id": -1,
-                "box": [0,0,0,0]
-            }
-            msg = Protocol.ui_command(UICommand.SHOW_ALARM, ui_alarm_data)
-            self.ui_client.send_request(msg)
-            self.last_obstacle_level = DangerLevel.NORMAL
+        self.last_obstacle_level = level
 
+        # 3. Send status update to UI (including SAFE state to reset LED)
+        # Always send update when level changes, even when returning to SAFE
+        # Prepare detailed alert message
+        alert_data = {
+            "level": level.value,
+            "level_name": level.name,
+            "object_type": object_type,
+            "distance": distance,
+            "speed": speed,
+            "direction": direction,
+        }
+
+        # Add risk details if available
+        if highest_risk_obj:
+            alert_data.update(
+                {
+                    "track_id": track_id,
+                    "pttc_s": round(pttc_s, 2) if pttc_s < 1e6 else None,
+                    "risk_score": round(risk_score, 2),
+                    "in_center": in_center,
+                    "approaching": approaching,
+                    "class_name": highest_risk_obj.get("class_name", "unknown"),
+                }
+            )
+
+        msg = Protocol.ui_command(UICommand.SHOW_ALARM, alert_data)
+        self.ui_client.send_request(msg)
+
+        if level >= DangerLevel.CAUTION:
+            print(
+                f"[Engine] Obstacle alert sent: level={level.name}, object={object_type}, "
+                f"track_id={track_id}, pTTC={pttc_s:.2f}s"
+                if pttc_s < 1e6
+                else f"[Engine] Obstacle alert sent: level={level.name}, object={object_type}"
+            )
+        else:
+            print(f"[Engine] Obstacle cleared: level={level.name} (SAFE)")
 
     def process_product_event(self, data: dict, session_id: int):
         """Processes a product detection event from the AI."""

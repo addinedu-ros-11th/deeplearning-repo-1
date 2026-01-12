@@ -52,10 +52,16 @@ class AIEvent(IntEnum):
 
 
 class DangerLevel(IntEnum):
-    NORMAL = 0  # SAFE
-    CAUTION = 1 # CAUTION
-    CRITICAL = 2 # WARN
+    """
+    장애물 위험 수준 (Risk Engine 호환)
+    NORMAL(0) = SAFE: 안전, 장애물 없음
+    CAUTION(1) = CAUTION: 주의, 접근 중인 객체
+    CRITICAL(2) = WARN: 위험, 충돌 위험 임박
+    """
 
+    NORMAL = 0  # = RISK_SAFE
+    CAUTION = 1  # = RISK_CAUTION
+    CRITICAL = 2  # = RISK_WARN
 
 
 # =========================
