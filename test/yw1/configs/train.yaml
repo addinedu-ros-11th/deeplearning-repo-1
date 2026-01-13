@@ -1,0 +1,22 @@
+# configs/train.yaml
+
+model:
+  name: yw1/runs/train/25123100_add_labelling/weights/best.pt
+  # 또는 fine-tuning 시:
+  # name: /abs/path/to/best.pt
+
+data:
+  dataset_yaml: yw1/data/yolo_oversampling_v1/data.yaml
+
+train:
+  epochs: 10
+  imgsz: 640
+  batch: 16
+  lr0: 1e-4
+  lrf: 1e-5
+  freeze: 20
+
+output:
+  project: test/yw1/runs/train
+  name: 260112_yolov11n-obb-add_beverage_freeze20
+  exist_ok: true

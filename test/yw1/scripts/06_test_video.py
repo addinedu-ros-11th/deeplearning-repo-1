@@ -14,10 +14,10 @@ import shutil
 # You might need to adjust RUN_NAME to match your actual training run.
 ROOT_DIR = Path(__file__).resolve().parents[3]
 RUNS_DIR = ROOT_DIR /"test"/ "yw1" / "runs" / "train"
-RUN_NAME = "rot_cvat_labeling"
+RUN_NAME = "250113_obb_ch"
 # Example: WEIGHTS_PATH = RUNS_DIR / "your_run_name" / "weights" / "best.pt"
 WEIGHTS_PATH = ROOT_DIR / "models" / "product_recognizer" / (RUN_NAME+".pt") 
-
+# WEIGHTS_PATH = RUNS_DIR / "260112_yolov11n-obb-add_beverage_freeze20" / "weights" /"best.pt"
 # Path to the dataset configuration YAML file for evaluation.
 DATASET_CONFIG_PATH = ROOT_DIR / "test" / "yw1" / "data" / "TEST_VIDEO" / "data.yaml"
 

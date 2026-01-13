@@ -1,0 +1,13 @@
+model:
+  name: test/yw1/runs/train/25123100_add_labelling/weights/best.pt
+data:
+  dataset_yaml: test/yw1/data/yolo_oversampling/data.yaml
+train:
+  epochs: 50
+  imgsz: 640
+  batch: 16
+  device: auto
+output:
+  project: test/yw1/runs/train
+  run_name: 260112_yolov11n-obb-add_beverage
+  exist_ok: false

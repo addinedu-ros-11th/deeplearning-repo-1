@@ -6,7 +6,7 @@ import torch
 # --- Configuration ---
 # IMPORTANT: You must update this path to point to the specific training run you want to use for prediction.
 PROJECT_NAME = "yolo_obb_training"
-RUN_NAME = "25123100_add_labelling" # This should match the 'RUN_NAME' from your training script
+RUN_NAME = "250113_obb_ch" # This should match the 'RUN_NAME' from your training script
 # 25123100_add_labelling
 # 25123101_yolov8n-obb
 WEIGHTS_NAME = "best.pt"
@@ -16,6 +16,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 RUNS_DIR = ROOT_DIR  / "yw1" / "runs" / "train"
 WEIGHTS_PATH = RUNS_DIR / RUN_NAME / "weights" / WEIGHTS_NAME
 #WEIGHTS_PATH = ROOT_DIR / "yw1" / "runs" /"best_251229.pt"
+WEIGHTS_PATH = Path(__file__).resolve().parents[3]/ "models" / "product_recognizer" / "250113_obb_ch.pt"
 # best_251231
 # Source for image prediction
 SOURCE_DIR = ROOT_DIR / "yw1" / "data" / "inference" / "input"
@@ -124,7 +125,7 @@ def predict_on_webcam():
     try:
         # stream=True is efficient for video feeds.
         # show=True displays the output window.
-        results = model.predict(
+        results = model.track(
             source='0',  # '0' is the default webcam
             conf=CONFIDENCE_THRESHOLD,
             stream=True,
@@ -138,6 +139,7 @@ def predict_on_webcam():
             # The loop runs for each frame. 'show=True' handles the display.
             # You can add custom logic here to process results per frame.
             pass
+            #print(dir(results))
 
     except Exception as e:
         print(f"\nAn error occurred during webcam prediction: {e}")
