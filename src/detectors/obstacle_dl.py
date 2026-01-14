@@ -3,6 +3,7 @@ Advanced Obstacle Detection with Tracking and Risk Assessment
 Integrated obstacle_v2 algorithm with original system compatibility
 """
 
+import os
 import numpy as np
 from common.config import config
 from detectors.obstacle_tracker import YoloTrackerDetector
@@ -13,6 +14,9 @@ from detectors.risk_engine import (
     RISK_CAUTION,
     RISK_WARN,
 )
+from detectors.risk_lens import RiskLens, RiskLensConfig, RISK_NAME as LENS_RISK_NAME
+
+
 
 
 class ObstacleDetector:
@@ -65,6 +69,16 @@ class ObstacleDetector:
         self.frame_index = 0
         self.last_fps = 30.0  # 기본 FPS
 
+        # Lens toggle (default OFF)
+        self.lens_enabled = os.getenv("RISK_LENS", "0") == "1"
+        self.lens = None
+        if self.lens_enabled:
+            lens_cfg = RiskLensConfig()
+            # (옵션) 환경변수로 정지 초근접 WARN을 켤 수 있게
+            lens_cfg.allow_static_person_warn = os.getenv("RISK_LENS_STATIC_PERSON", "0") == "1"
+            lens_cfg.allow_static_cart_warn = os.getenv("RISK_LENS_STATIC_CART", "0") == "1"
+            self.lens = RiskLens(lens_cfg)
+
     def detect(self, frame):
         """
         이미지를 분석하여 장애물 유무와 위험도를 반환
@@ -91,12 +105,28 @@ class ObstacleDetector:
 
             # Risk Engine으로 위험도 평가
             H, W = frame.shape[:2]
+
+            dets = frame_detections.detections
+            # Lens가 켜져 있으면 track_id=-1 섞임 방지(렌즈 내부 정책과 일관)
+            if self.lens_enabled and self.lens is not None:
+                dets = self.lens.fix_untracked(dets, self.frame_index)
+
             risk_metrics = self.risk_engine.update(
-                detections=frame_detections.detections,
+                detections=dets,
                 frame_shape_hw=(H, W),
                 frame_index=self.frame_index,
                 fps=self.last_fps,
             )
+
+            # Lens 판정(최종 level override 용)
+            patched_levels = None
+            if self.lens_enabled and self.lens is not None:
+                center_band_ratio = 0.45
+                if config and hasattr(config.model.obstacle_detector, "risk"):
+                    rp = config.model.obstacle_detector.risk
+                    if isinstance(rp, dict):
+                        center_band_ratio = float(rp.get("center_band_ratio", 0.45))
+                patched_levels = self.lens.apply(dets, H, W, self.last_fps, center_band_ratio)
 
             # 결과 변환
             detected_objects = []
@@ -104,10 +134,18 @@ class ObstacleDetector:
             max_risk_score = 0.0
             highest_risk_obj = None
 
-            for idx, det in enumerate(frame_detections.detections):
+            for idx, det in enumerate(dets):
                 metrics = risk_metrics.get(idx)
                 if metrics is None:
                     continue
+
+                # 기본: risk_engine 결과
+                risk_level = int(metrics.risk_level)
+                risk_name = str(metrics.risk_name)
+                # Lens ON이면 최종 판정만 override
+                if patched_levels is not None and idx in patched_levels:
+                    risk_level = int(patched_levels[idx])
+                    risk_name = LENS_RISK_NAME.get(risk_level, risk_name)
 
                 x1, y1, x2, y2 = det.xyxy
                 obj_info = {
@@ -116,8 +154,8 @@ class ObstacleDetector:
                     "class_name": det.cls_name,
                     "confidence": float(det.conf),
                     "box": [int(x1), int(y1), int(x2), int(y2)],
-                    "risk_level": metrics.risk_level,
-                    "risk_name": metrics.risk_name,
+                    "risk_level": risk_level,
+                    "risk_name": risk_name,
                     "score": metrics.score,
                     "pttc_s": metrics.pttc_s,
                     "in_center": metrics.in_center,
@@ -126,11 +164,11 @@ class ObstacleDetector:
                 detected_objects.append(obj_info)
 
                 # 최고 위험 객체 추적
-                if metrics.risk_level > max_risk_level or (
-                    metrics.risk_level == max_risk_level
+                if risk_level > max_risk_level or (
+                    risk_level == max_risk_level
                     and metrics.score > max_risk_score
                 ):
-                    max_risk_level = metrics.risk_level
+                    max_risk_level = risk_level
                     max_risk_score = metrics.score
                     highest_risk_obj = obj_info
 
